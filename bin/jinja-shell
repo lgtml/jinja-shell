@@ -1,0 +1,66 @@
+#!/usr/bin/env python
+import pprint
+import json
+import logging
+
+from jinja2 import Template
+from cmd2 import Cmd
+
+class App(Cmd):
+    var_state = {}
+    name = 'jinja-shell'
+    prompt = "# {}> ".format(name)
+
+    def do_exec(self, template_string):
+        template = Template(template_string)
+        res = template.render(**self.var_state)
+        self.log("OUTOUT: {}", res)
+
+    def do_set(self, arg):
+        args = arg.split(" ")
+        name = args[0].split('.')
+        value = " ".join(args[1:])
+        try:
+            value = json.loads(value)
+        except ValueError:
+            self.log('Using string value')
+        self.log("Setting {} to {}", args[0], value)
+        state = self.var_state
+        for i in name[:-1]:
+            if i not in state:
+                state[i] = {}
+            state = state[i]
+        state[name[-1]] = value
+
+    def do_get(self, name):
+        if name in self.var_state:
+            self.log('{} is {}',
+                name, self.var_state[name])
+        else:
+            self.not_found(name)
+
+    def do_del(self, name):
+        if name in self.var_state:
+            del self.var_state[name]
+            self.log("Deleted {}", name)
+        else:
+            self.not_found(name)
+
+    def do_clear(self, arg=None):
+        self.var_state = {}
+        self.log('Cleared state')
+
+    def do_print_state(self, arg=None):
+        pprint.pprint(self.var_state)
+
+    def log(self, msg, *args, **kwargs):
+      print msg.format(*args, **kwargs)
+
+    def not_found(self, name):
+        self.log('{} is not set', name)
+
+
+if __name__ == "__main__":
+  app = App()
+  app.cmdloop()
+
